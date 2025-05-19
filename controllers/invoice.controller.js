@@ -36,32 +36,64 @@ exports.getInvoices = async (req, res) => {
   res.json(invoices);
 };
 
+// exports.sendInvoice = async (req, res) => {
+//   const { to, subject, text, attachmentPath } = req.body;
+
+//   const transporter = nodemailer.createTransport({
+//     service: 'gmail',
+//     auth: {
+//       user: process.env.EMAIL_USER,
+//       pass: process.env.EMAIL_PASS
+//     }
+//   });
+
+//   const mailOptions = {
+//     from: process.env.EMAIL_USER,
+//     to,
+//     subject,
+//     text,
+//     attachments: [
+//       {
+//         filename: path.basename(attachmentPath),
+//         path: attachmentPath
+//       }
+//     ]
+//   };
+
+//   transporter.sendMail(mailOptions, (error, info) => {
+//     if (error) return res.status(500).send(error.toString());
+//     res.status(200).send(`Email sent: ${info.response}`);
+//   });
+// };
+
+
+
 exports.sendInvoice = async (req, res) => {
   const { to, subject, text, attachmentPath } = req.body;
 
-  const transporter = nodemailer.createTransport({
-    service: 'gmail',
-    auth: {
-      user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASS
-    }
+  const mg = mailgun({
+    apiKey: process.env.MAILGUN_API_KEY,
+    domain: process.env.MAILGUN_DOMAIN
   });
 
-  const mailOptions = {
-    from: process.env.EMAIL_USER,
+  // Read the file as a buffer
+  const fileStream = fs.createReadStream(attachmentPath);
+
+  const data = {
+    from: `Your Company <mail@${process.env.MAILGUN_DOMAIN}>`,
     to,
     subject,
     text,
-    attachments: [
-      {
-        filename: path.basename(attachmentPath),
-        path: attachmentPath
-      }
-    ]
+    attachment: fileStream
   };
 
-  transporter.sendMail(mailOptions, (error, info) => {
-    if (error) return res.status(500).send(error.toString());
-    res.status(200).send(`Email sent: ${info.response}`);
+  mg.messages().send(data, function (error, body) {
+    if (error) {
+      console.error('Mailgun send error:', error);
+      return res.status(500).send('Failed to send invoice');
+    }
+
+    console.log('Mailgun response:', body);
+    res.status(200).send('Invoice sent successfully!');
   });
 };
